@@ -10,10 +10,10 @@ export interface StateRootBatchHeader {
 }
 
 export interface TransactionBatchHeader {
-  batchIndex: BigNumber
+  batchIndex: number
   batchRoot: string
-  batchSize: BigNumber
-  prevTotalElements: BigNumber
+  batchSize: number
+  prevTotalElements: number
   extraData: string
 }
 

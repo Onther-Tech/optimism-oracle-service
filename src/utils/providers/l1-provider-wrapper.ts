@@ -151,11 +151,7 @@ export class L1ProviderWrapper {
 
     const tree = new MerkleTree(leaves, hash)
     const batchIndex = index - batchHeader.prevTotalElements.toNumber()
-    const treeProof = tree
-      .getProof(leaves[batchIndex], batchIndex)
-      .map((element) => {
-        return element.data
-      })
+    const treeProof = tree.getHexProof(leaves[batchIndex], batchIndex)
 
     return {
       stateRoot: stateRoots[batchIndex],
@@ -177,10 +173,10 @@ export class L1ProviderWrapper {
     }
 
     return {
-      batchIndex: event.args._batchIndex,
+      batchIndex: event.args._batchIndex.toNumber(),
       batchRoot: event.args._batchRoot,
-      batchSize: event.args._batchSize,
-      prevTotalElements: event.args._prevTotalElements,
+      batchSize: event.args._batchSize.toNumber(),
+      prevTotalElements: event.args._prevTotalElements.toNumber(),
       extraData: event.args._extraData,
     }
   }
@@ -243,7 +239,7 @@ export class L1ProviderWrapper {
             transaction: {
               blockNumber: context.ctxBlockNumber.toNumber(),
               timestamp: context.ctxTimestamp.toNumber(),
-              gasLimit: emGasLimit,
+              gasLimit: emGasLimit.toNumber(),
               entrypoint: '0x4200000000000000000000000000000000000005',
               l1TxOrigin: '0x' + '00'.repeat(20),
               l1QueueOrigin: 0,
@@ -281,7 +277,6 @@ export class L1ProviderWrapper {
       i++
     ) {
       if (i < transactions.length) {
-        // TODO: FIX
         const tx = transactions[i]
         elements.push(
           `0x01${BigNumber.from(tx.transaction.timestamp)
@@ -306,12 +301,8 @@ export class L1ProviderWrapper {
     })
 
     const tree = new MerkleTree(leaves, hash)
-    const batchIndex = index - batchHeader.prevTotalElements.toNumber()
-    const treeProof = tree
-      .getProof(leaves[batchIndex], batchIndex)
-      .map((element) => {
-        return element.data
-      })
+    const batchIndex = index - batchHeader.prevTotalElements
+    const treeProof = tree.getHexProof(leaves[batchIndex], batchIndex)
 
     return {
       transaction: transactions[batchIndex].transaction,
