@@ -8,6 +8,7 @@
     "start": "node ./exec/run.js",
     "start:fraud-prover": "node ./exec/run-fraud-prover.js",
     "start:oracle": "yarn run build:typescript && node ./exec/run-oracle.js",
+    "start:oracle:server": "npx json-server --watch db.json",
     "build": "yarn run build:typescript",
     "build:typescript": "tsc -p .",
     "lint": "yarn run lint:typescript",
