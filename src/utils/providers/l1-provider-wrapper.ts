@@ -51,7 +51,7 @@ export class L1ProviderWrapper {
       )
     )
 
-    if (caching) {
+    if (caching && events.length > 0) {
       cache.startingBlockNumber = latestL1BlockNumber - 1
       cache.events = cache.events.concat(events)
     }
