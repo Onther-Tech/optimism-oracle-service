@@ -32,7 +32,8 @@ export class L1ProviderWrapper {
   public async findAllEvents(
     contract: Contract,
     filter: ethers.EventFilter,
-    fromBlock?: number
+    fromBlock?: number,
+    caching?: boolean
   ): Promise<ethers.Event[]> {
     const cache = this.eventCache[filter.topics[0] as string] || {
       startingBlockNumber: fromBlock || this.l1StartOffset,
@@ -42,31 +43,22 @@ export class L1ProviderWrapper {
     let events: ethers.Event[] = []
     let startingBlockNumber = cache.startingBlockNumber
     let latestL1BlockNumber = await this.provider.getBlockNumber()
-    while (startingBlockNumber < latestL1BlockNumber) {
-      events = events.concat(
-        await contract.queryFilter(
-          filter,
-          startingBlockNumber,
-          Math.min(
-            startingBlockNumber + 2000,
-            latestL1BlockNumber - this.l1BlockFinality
-          )
-        )
+    events = events.concat(
+      await contract.queryFilter(
+        filter,
+        startingBlockNumber,
+        latestL1BlockNumber
       )
+    )
 
-      if (startingBlockNumber + 2000 > latestL1BlockNumber) {
-        cache.startingBlockNumber = latestL1BlockNumber
-        cache.events = cache.events.concat(events)
-        break
-      }
-
-      startingBlockNumber += 2000
-      latestL1BlockNumber = await this.provider.getBlockNumber()
+    if (caching) {
+      cache.startingBlockNumber = latestL1BlockNumber - 1
+      cache.events = cache.events.concat(events)
     }
 
     this.eventCache[filter.topics[0] as string] = cache
 
-    return cache.events
+    return events
   }
 
   public async getStateRootBatchHeader(
@@ -164,10 +156,8 @@ export class L1ProviderWrapper {
   }
 
   public async getTransactionBatchHeader(
-    index: number
+    event: Event & { isSequencerBatch: boolean },
   ): Promise<TransactionBatchHeader> {
-    const event = await this._getTransactionBatchEvent(index)
-
     if (!event) {
       return
     }
@@ -182,15 +172,13 @@ export class L1ProviderWrapper {
   }
 
   public async getBatchTransactions(
-    index: number
+    event: Event & { isSequencerBatch: boolean }
   ): Promise<
     {
       transaction: OvmTransaction
       transactionChainElement: TransactionChainElement
     }[]
   > {
-    const event = await this._getTransactionBatchEvent(index)
-
     if (!event) {
       return
     }
@@ -265,10 +253,13 @@ export class L1ProviderWrapper {
   }
 
   public async getTransactionBatchProof(
-    index: number
+    index: number,
+    fromBlock?: number
   ): Promise<TransactionBatchProof> {
-    const batchHeader = await this.getTransactionBatchHeader(index)
-    const transactions = await this.getBatchTransactions(index)
+    const batchEvent = await this._getTransactionBatchEvent(index, fromBlock)
+
+    const batchHeader = await this.getTransactionBatchHeader(batchEvent)
+    const transactions = await this.getBatchTransactions(batchEvent)
 
     const elements = []
     for (
@@ -368,11 +359,14 @@ export class L1ProviderWrapper {
   }
 
   private async _getTransactionBatchEvent(
-    index: number
+    index: number,
+    fromBlock?: number
   ): Promise<Event & { isSequencerBatch: boolean }> {
     const events = await this.findAllEvents(
       this.OVM_CanonicalTransactionChain,
-      this.OVM_CanonicalTransactionChain.filters.TransactionBatchAppended()
+      this.OVM_CanonicalTransactionChain.filters.TransactionBatchAppended(),
+      fromBlock,
+      false
     )
 
     if (events.length === 0) {
@@ -395,7 +389,9 @@ export class L1ProviderWrapper {
 
     const batchSubmissionEvents = await this.findAllEvents(
       this.OVM_CanonicalTransactionChain,
-      this.OVM_CanonicalTransactionChain.filters.SequencerBatchAppended()
+      this.OVM_CanonicalTransactionChain.filters.SequencerBatchAppended(),
+      fromBlock,
+      true
     )
 
     if (batchSubmissionEvents.length === 0) {
